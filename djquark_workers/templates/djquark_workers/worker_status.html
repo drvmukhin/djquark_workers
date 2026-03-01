@@ -1,0 +1,227 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Worker Status | djquark-workers{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    :root {
+        --quark-bg-primary: #1a1a1a;
+        --quark-bg-secondary: #222;
+        --quark-border: #333;
+        --quark-text: #fff;
+        --quark-text-muted: #9ca3af;
+        --quark-text-dim: #6b7280;
+        --quark-accent-green: #10b981;
+    }
+
+    .quark-status-page {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 1.5rem;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: var(--quark-bg-primary);
+        color: var(--quark-text);
+        min-height: 100vh;
+    }
+
+    .quark-status-page h1 {
+        margin: 0 0 1.5rem;
+        font-size: 1.5rem;
+        color: var(--quark-text);
+    }
+
+    .quark-status-card {
+        background: var(--quark-bg-primary);
+        border: 1px solid var(--quark-border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .quark-status-card-header {
+        background: var(--quark-bg-secondary);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--quark-border);
+    }
+
+    .quark-status-card-header h2 {
+        font-size: 1rem;
+        color: var(--quark-text);
+        margin: 0;
+    }
+
+    .quark-status-summary {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .quark-status-stat {
+        background: var(--quark-bg-secondary);
+        border-radius: 8px;
+        padding: 1rem 1.5rem;
+        min-width: 120px;
+    }
+
+    .quark-status-stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--quark-accent-green);
+    }
+
+    .quark-status-stat-label {
+        font-size: 0.8rem;
+        color: var(--quark-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .quark-worker-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .quark-worker-table th,
+    .quark-worker-table td {
+        padding: 0.75rem 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--quark-border);
+    }
+
+    .quark-worker-table th {
+        background: var(--quark-bg-secondary);
+        color: var(--quark-text-muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+
+    .quark-worker-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .quark-worker-table tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .quark-worker-id {
+        font-family: 'Monaco', 'Consolas', monospace;
+        font-weight: 600;
+        color: var(--quark-accent-green);
+    }
+
+    .quark-worker-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .quark-worker-badge.web {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+    }
+
+    .quark-worker-badge.celery {
+        background: rgba(139, 92, 246, 0.2);
+        color: #a78bfa;
+    }
+
+    .quark-worker-badge.beat {
+        background: rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+    }
+
+    .quark-worker-badge.bot {
+        background: rgba(88, 101, 242, 0.2);
+        color: #7289da;
+    }
+
+    .quark-no-workers {
+        padding: 2rem;
+        text-align: center;
+        color: var(--quark-text-dim);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quark-status-page">
+    <h1>Worker Status</h1>
+
+    <div class="quark-status-card">
+        <div class="quark-status-card-header">
+            <h2>Summary</h2>
+        </div>
+        <div class="quark-status-summary">
+            <div class="quark-status-stat">
+                <div class="quark-status-stat-value">{{ worker_count }}</div>
+                <div class="quark-status-stat-label">Total Workers</div>
+            </div>
+            <div class="quark-status-stat">
+                <div class="quark-status-stat-value">{{ workers_by_type.web|length }}</div>
+                <div class="quark-status-stat-label">Web Workers</div>
+            </div>
+            <div class="quark-status-stat">
+                <div class="quark-status-stat-value">{{ workers_by_type.celery|length }}</div>
+                <div class="quark-status-stat-label">Celery Workers</div>
+            </div>
+            <div class="quark-status-stat">
+                <div class="quark-status-stat-value">{{ workers_by_type.beat|length }}</div>
+                <div class="quark-status-stat-label">Beat Schedulers</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="quark-status-card">
+        <div class="quark-status-card-header">
+            <h2>Active Workers</h2>
+        </div>
+        {% if workers_info %}
+        <table class="quark-worker-table">
+            <thead>
+                <tr>
+                    <th>Worker ID</th>
+                    <th>Type</th>
+                    <th>PID</th>
+                    <th>Hostname</th>
+                    <th>Started</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for worker in workers_info %}
+                <tr>
+                    <td><span class="quark-worker-id">{{ worker.worker_id }}</span></td>
+                    <td>
+                        {% if worker.process_type == 'web' %}
+                        <span class="quark-worker-badge web">Web</span>
+                        {% elif worker.process_type == 'celery' %}
+                        <span class="quark-worker-badge celery">Celery</span>
+                        {% elif worker.process_type == 'beat' %}
+                        <span class="quark-worker-badge beat">Beat</span>
+                        {% elif worker.process_type == 'discord_bot' %}
+                        <span class="quark-worker-badge bot">Bot</span>
+                        {% else %}
+                        <span class="quark-worker-badge">{{ worker.process_type }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ worker.pid }}</td>
+                    <td>{{ worker.hostname }}</td>
+                    <td>{{ worker.started_at }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="quark-no-workers">
+            No workers currently registered.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

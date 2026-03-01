@@ -1,0 +1,769 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Logging Configuration | djquark-workers{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{% block extra_css %}
+<style>
+    /* djquark-workers default styles - can be overridden by extending templates */
+    :root {
+        --quark-bg-primary: #1a1a1a;
+        --quark-bg-secondary: #222;
+        --quark-bg-tertiary: #2a2a2a;
+        --quark-border: #333;
+        --quark-border-light: #444;
+        --quark-text: #fff;
+        --quark-text-muted: #9ca3af;
+        --quark-text-dim: #6b7280;
+        --quark-accent-green: #10b981;
+        --quark-accent-blue: #3b82f6;
+        --quark-accent-purple: #8b5cf6;
+        --quark-accent-yellow: #f59e0b;
+        --quark-accent-red: #ef4444;
+    }
+
+    .quark-logging-page {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 1.5rem;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: var(--quark-bg-primary);
+        color: var(--quark-text);
+        min-height: 100vh;
+    }
+
+    .quark-header {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .quark-header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        color: var(--quark-text);
+    }
+
+    .quark-header-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .quark-card {
+        background: var(--quark-bg-primary);
+        border: 1px solid var(--quark-border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+
+    .quark-card-header {
+        background: var(--quark-bg-secondary);
+        padding: 1rem 1.5rem;
+        border-bottom: 1px solid var(--quark-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .quark-card-header h2 {
+        font-size: 1rem;
+        color: var(--quark-text);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .quark-card-header h2.application::before { content: "📦"; }
+    .quark-card-header h2.django::before { content: "🐍"; }
+    .quark-card-header h2.infrastructure::before { content: "🖥️"; }
+    .quark-card-header h2.root::before { content: "🌳"; }
+
+    .quark-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    .quark-table th,
+    .quark-table td {
+        padding: 0.75rem 1rem;
+        vertical-align: middle;
+    }
+
+    .quark-table th:nth-child(1),
+    .quark-table td:nth-child(1) { width: 35%; }
+    .quark-table th:nth-child(2),
+    .quark-table td:nth-child(2) { width: 20%; }
+    .quark-table th:nth-child(3),
+    .quark-table td:nth-child(3) { width: 25%; }
+    .quark-table th:nth-child(4),
+    .quark-table td:nth-child(4) { width: 20%; }
+
+    .quark-table th {
+        text-align: left;
+        background: #1e1e1e;
+        color: var(--quark-text-muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+        border-bottom: 1px solid var(--quark-border);
+    }
+
+    .quark-table td {
+        border-bottom: 1px solid #2a2a2a;
+    }
+
+    .quark-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .quark-table tr:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .quark-logger-name {
+        font-family: 'Monaco', 'Consolas', monospace;
+        font-size: 0.9rem;
+        color: var(--quark-text);
+        word-break: break-word;
+    }
+
+    .quark-logger-name.root {
+        font-style: italic;
+        color: var(--quark-accent-yellow);
+    }
+
+    .quark-logger-desc {
+        font-size: 0.8rem;
+        color: var(--quark-text-dim);
+        margin-top: 0.25rem;
+    }
+
+    .quark-level-select {
+        background: var(--quark-bg-tertiary);
+        border: 1px solid var(--quark-border-light);
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        color: var(--quark-text);
+        font-size: 0.85rem;
+        width: 120px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .quark-level-select:hover {
+        border-color: #666;
+    }
+
+    .quark-level-select:focus {
+        outline: none;
+        border-color: var(--quark-accent-blue);
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    }
+
+    .quark-level-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .quark-level-badge.debug { background: rgba(139, 92, 246, 0.2); color: #a78bfa; }
+    .quark-level-badge.info { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .quark-level-badge.warning { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .quark-level-badge.error { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+    .quark-level-badge.critical { background: rgba(220, 38, 38, 0.3); color: #fca5a5; }
+    .quark-level-badge.notset { background: rgba(107, 114, 128, 0.2); color: #9ca3af; }
+
+    .quark-status-active {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.8rem;
+        color: var(--quark-accent-green);
+    }
+
+    .quark-status-pending {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.8rem;
+        color: var(--quark-accent-yellow);
+    }
+
+    .quark-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+        text-decoration: none;
+    }
+
+    .quark-btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: #fff;
+    }
+
+    .quark-btn-primary:hover {
+        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        transform: translateY(-1px);
+    }
+
+    .quark-btn-primary:disabled {
+        background: #444;
+        color: #888;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .quark-btn-danger {
+        background: rgba(239, 68, 68, 0.2);
+        color: #f87171;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .quark-btn-danger:hover {
+        background: rgba(239, 68, 68, 0.3);
+    }
+
+    .quark-pending-count {
+        display: none;
+        background: rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+    }
+
+    .quark-pending-count.visible {
+        display: inline-block;
+    }
+
+    /* Workers Section */
+    .quark-workers-section {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+
+    .quark-workers-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--quark-bg-primary);
+        border: 1px solid var(--quark-border);
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        color: var(--quark-text-muted);
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        width: 100%;
+    }
+
+    .quark-workers-toggle:hover {
+        background: var(--quark-bg-secondary);
+        border-color: var(--quark-border-light);
+    }
+
+    .quark-workers-toggle .toggle-icon {
+        transition: transform 0.2s;
+        font-size: 0.7rem;
+    }
+
+    .quark-workers-toggle.expanded .toggle-icon {
+        transform: rotate(90deg);
+    }
+
+    .quark-workers-toggle .toggle-label {
+        font-weight: 600;
+        color: var(--quark-text);
+    }
+
+    .quark-workers-toggle .worker-summary {
+        margin-left: auto;
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .quark-workers-content {
+        display: none;
+        background: var(--quark-bg-primary);
+        border: 1px solid var(--quark-border);
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 1rem;
+        margin-top: -8px;
+    }
+
+    .quark-workers-content.expanded {
+        display: block;
+    }
+
+    .quark-workers-toggle.expanded {
+        border-radius: 8px 8px 0 0;
+    }
+
+    .quark-worker-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    .quark-worker-badge.web {
+        background: rgba(16, 185, 129, 0.2);
+        color: #10b981;
+    }
+
+    .quark-worker-badge.celery {
+        background: rgba(139, 92, 246, 0.2);
+        color: #a78bfa;
+    }
+
+    .quark-worker-badge.beat {
+        background: rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+    }
+
+    .quark-worker-badge.bot {
+        background: rgba(88, 101, 242, 0.2);
+        color: #7289da;
+    }
+
+    .quark-worker-list {
+        font-size: 0.8rem;
+        color: var(--quark-text-dim);
+        font-family: 'Monaco', 'Consolas', monospace;
+        background: #0d0d0d;
+        padding: 0.75rem;
+        border-radius: 4px;
+        word-break: break-word;
+        margin-top: 0.75rem;
+    }
+
+    .quark-action-buttons {
+        display: flex;
+        gap: 0.5rem;
+        padding: 1rem 0;
+    }
+
+    /* Messages/Alerts */
+    .quark-messages {
+        margin-bottom: 1rem;
+    }
+
+    .quark-alert {
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+    }
+
+    .quark-alert-success {
+        background: rgba(16, 185, 129, 0.2);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: #10b981;
+    }
+
+    .quark-alert-error {
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #f87171;
+    }
+</style>
+{% endblock %}
+{% endblock %}
+
+{% block content %}
+<div class="quark-logging-page">
+    {% if messages %}
+    <div class="quark-messages">
+        {% for message in messages %}
+        <div class="quark-alert quark-alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" id="quark-logging-form">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update">
+
+        <div class="quark-header">
+            <h1>Logging Configuration</h1>
+
+            {% if worker_count > 0 %}
+            <div class="quark-workers-section">
+                <div class="quark-workers-toggle" id="workers-toggle" onclick="toggleWorkersSection()">
+                    <span class="toggle-icon">▶</span>
+                    <span class="toggle-label">Workers</span>
+                    <div class="worker-summary">
+                        {% if workers_by_type.web %}
+                        <span class="quark-worker-badge web" title="Web Workers">
+                            🌐 {{ workers_by_type.web|length }}
+                        </span>
+                        {% endif %}
+                        {% if workers_by_type.celery %}
+                        <span class="quark-worker-badge celery" title="Celery Workers">
+                            ⚙️ {{ workers_by_type.celery|length }}
+                        </span>
+                        {% endif %}
+                        {% if workers_by_type.beat %}
+                        <span class="quark-worker-badge beat" title="Celery Beat">
+                            ⏰ {{ workers_by_type.beat|length }}
+                        </span>
+                        {% endif %}
+                        {% if workers_by_type.discord_bot %}
+                        <span class="quark-worker-badge bot" title="Discord Bot">
+                            🤖 {{ workers_by_type.discord_bot|length }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="quark-workers-content" id="workers-content">
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                        {% if workers_by_type.web %}
+                        <span class="quark-worker-badge web">🌐 {{ workers_by_type.web|length }} Web</span>
+                        {% endif %}
+                        {% if workers_by_type.celery %}
+                        <span class="quark-worker-badge celery">⚙️ {{ workers_by_type.celery|length }} Celery</span>
+                        {% endif %}
+                        {% if workers_by_type.beat %}
+                        <span class="quark-worker-badge beat">⏰ {{ workers_by_type.beat|length }} Beat</span>
+                        {% endif %}
+                        {% if workers_by_type.discord_bot %}
+                        <span class="quark-worker-badge bot">🤖 {{ workers_by_type.discord_bot|length }} Bot</span>
+                        {% endif %}
+                    </div>
+                    <div class="quark-worker-list">{{ active_workers|join:", " }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="quark-header-actions">
+                <span class="quark-pending-count" id="pending-count">0 pending</span>
+                <button type="submit" class="quark-btn quark-btn-primary" id="apply-btn" disabled>
+                    💾 Apply Changes
+                </button>
+                <button type="submit" name="action" value="reset" class="quark-btn quark-btn-danger"
+                        onclick="return confirm('Reset all logging levels to defaults from settings.py?')">
+                    ↩️ Reset to Defaults
+                </button>
+            </div>
+        </div>
+
+        {% block logger_cards %}
+        <!-- Application Modules -->
+        {% if loggers_by_category.application %}
+        <div class="quark-card">
+            <div class="quark-card-header">
+                <h2 class="application">Application Modules</h2>
+            </div>
+            <table class="quark-table">
+                <thead>
+                    <tr>
+                        <th>Logger</th>
+                        <th>Effective Level</th>
+                        <th>Set Level</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for logger in loggers_by_category.application %}
+                    <tr data-logger="{{ logger.name }}">
+                        <td>
+                            <div class="quark-logger-name">{{ logger.name }}</div>
+                            <div class="quark-logger-desc">{{ logger.display_name }}</div>
+                        </td>
+                        <td>
+                            <span class="quark-level-badge {{ logger.effective_level|lower }}">
+                                {{ logger.effective_level }}
+                            </span>
+                        </td>
+                        <td>
+                            <select name="{{ logger.form_key }}" class="quark-level-select"
+                                    data-logger="{{ logger.name }}"
+                                    data-effective-level="{{ logger.effective_level }}"
+                                    data-original-value="{{ logger.effective_level }}">
+                                {% for level_value, level_label in log_levels %}
+                                    <option value="{{ level_value }}"
+                                        {% if logger.effective_level == level_value %}selected{% endif %}>
+                                        {{ level_value }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="status-cell">
+                            <span class="quark-status-active">● Active</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Django Internals -->
+        {% if loggers_by_category.django %}
+        <div class="quark-card">
+            <div class="quark-card-header">
+                <h2 class="django">Django Internals</h2>
+            </div>
+            <table class="quark-table">
+                <thead>
+                    <tr>
+                        <th>Logger</th>
+                        <th>Effective Level</th>
+                        <th>Set Level</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for logger in loggers_by_category.django %}
+                    <tr data-logger="{{ logger.name }}">
+                        <td>
+                            <div class="quark-logger-name">{{ logger.name }}</div>
+                            <div class="quark-logger-desc">{{ logger.display_name }}</div>
+                        </td>
+                        <td>
+                            <span class="quark-level-badge {{ logger.effective_level|lower }}">
+                                {{ logger.effective_level }}
+                            </span>
+                        </td>
+                        <td>
+                            <select name="{{ logger.form_key }}" class="quark-level-select"
+                                    data-logger="{{ logger.name }}"
+                                    data-effective-level="{{ logger.effective_level }}"
+                                    data-original-value="{{ logger.effective_level }}">
+                                {% for level_value, level_label in log_levels %}
+                                    <option value="{{ level_value }}"
+                                        {% if logger.effective_level == level_value %}selected{% endif %}>
+                                        {{ level_value }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="status-cell">
+                            <span class="quark-status-active">● Active</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Infrastructure -->
+        {% if loggers_by_category.infrastructure %}
+        <div class="quark-card">
+            <div class="quark-card-header">
+                <h2 class="infrastructure">Infrastructure</h2>
+            </div>
+            <table class="quark-table">
+                <thead>
+                    <tr>
+                        <th>Logger</th>
+                        <th>Effective Level</th>
+                        <th>Set Level</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for logger in loggers_by_category.infrastructure %}
+                    <tr data-logger="{{ logger.name }}">
+                        <td>
+                            <div class="quark-logger-name">{{ logger.name }}</div>
+                            <div class="quark-logger-desc">{{ logger.display_name }}</div>
+                        </td>
+                        <td>
+                            <span class="quark-level-badge {{ logger.effective_level|lower }}">
+                                {{ logger.effective_level }}
+                            </span>
+                        </td>
+                        <td>
+                            <select name="{{ logger.form_key }}" class="quark-level-select"
+                                    data-logger="{{ logger.name }}"
+                                    data-effective-level="{{ logger.effective_level }}"
+                                    data-original-value="{{ logger.effective_level }}">
+                                {% for level_value, level_label in log_levels %}
+                                    <option value="{{ level_value }}"
+                                        {% if logger.effective_level == level_value %}selected{% endif %}>
+                                        {{ level_value }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="status-cell">
+                            <span class="quark-status-active">● Active</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Root Logger -->
+        {% if loggers_by_category.root %}
+        <div class="quark-card">
+            <div class="quark-card-header">
+                <h2 class="root">Root Logger</h2>
+            </div>
+            <table class="quark-table">
+                <thead>
+                    <tr>
+                        <th>Logger</th>
+                        <th>Effective Level</th>
+                        <th>Set Level</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for logger in loggers_by_category.root %}
+                    <tr data-logger="">
+                        <td>
+                            <div class="quark-logger-name root">(root)</div>
+                            <div class="quark-logger-desc">{{ logger.display_name }} - affects all unconfigured loggers</div>
+                        </td>
+                        <td>
+                            <span class="quark-level-badge {{ logger.effective_level|lower }}">
+                                {{ logger.effective_level }}
+                            </span>
+                        </td>
+                        <td>
+                            <select name="{{ logger.form_key }}" class="quark-level-select"
+                                    data-logger=""
+                                    data-effective-level="{{ logger.effective_level }}"
+                                    data-original-value="{{ logger.effective_level }}">
+                                {% for level_value, level_label in log_levels %}
+                                    <option value="{{ level_value }}"
+                                        {% if logger.effective_level == level_value %}selected{% endif %}>
+                                        {{ level_value }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td class="status-cell">
+                            <span class="quark-status-active">● Active</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% endblock %}
+
+        <!-- Bottom Action Buttons -->
+        <div class="quark-action-buttons">
+            <button type="submit" class="quark-btn quark-btn-primary" id="apply-btn-bottom" disabled>
+                💾 Apply Changes
+            </button>
+            <button type="submit" name="action" value="reset" class="quark-btn quark-btn-danger"
+                    onclick="return confirm('Reset all logging levels to defaults from settings.py?')">
+                ↩️ Reset to Defaults
+            </button>
+        </div>
+    </form>
+</div>
+
+{% block extra_js %}
+<script>
+(function() {
+    const form = document.getElementById('quark-logging-form');
+    const applyBtn = document.getElementById('apply-btn');
+    const applyBtnBottom = document.getElementById('apply-btn-bottom');
+    const pendingCountEl = document.getElementById('pending-count');
+    const selects = document.querySelectorAll('.quark-level-select');
+
+    const changedLoggers = new Map();
+
+    function updatePendingCount() {
+        const count = changedLoggers.size;
+        pendingCountEl.textContent = `${count} pending`;
+
+        if (count > 0) {
+            pendingCountEl.classList.add('visible');
+            applyBtn.disabled = false;
+            applyBtnBottom.disabled = false;
+        } else {
+            pendingCountEl.classList.remove('visible');
+            applyBtn.disabled = true;
+            applyBtnBottom.disabled = true;
+        }
+    }
+
+    function updateRowStatus(select) {
+        const row = select.closest('tr');
+        const statusCell = row.querySelector('.status-cell');
+        const effectiveLevel = select.dataset.effectiveLevel;
+        const currentValue = select.value;
+        const loggerName = select.dataset.logger;
+
+        if (currentValue !== effectiveLevel) {
+            statusCell.innerHTML = '<span class="quark-status-pending">● Pending</span>';
+            changedLoggers.set(loggerName, currentValue);
+        } else {
+            statusCell.innerHTML = '<span class="quark-status-active">● Active</span>';
+            changedLoggers.delete(loggerName);
+        }
+
+        updatePendingCount();
+    }
+
+    selects.forEach(select => {
+        select.addEventListener('change', function() {
+            updateRowStatus(this);
+        });
+    });
+
+    form.addEventListener('submit', function(e) {
+        const action = e.submitter?.value;
+
+        if (action === 'reset') {
+            return;
+        }
+
+        if (changedLoggers.size === 0) {
+            e.preventDefault();
+            return;
+        }
+
+        selects.forEach(select => {
+            const loggerName = select.dataset.logger;
+            if (!changedLoggers.has(loggerName)) {
+                select.disabled = true;
+            }
+        });
+    });
+})();
+
+function toggleWorkersSection() {
+    const toggle = document.getElementById('workers-toggle');
+    const content = document.getElementById('workers-content');
+
+    if (toggle && content) {
+        toggle.classList.toggle('expanded');
+        content.classList.toggle('expanded');
+    }
+}
+</script>
+{% endblock %}
+{% endblock %}
+

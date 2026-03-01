@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "djquark-workers"
+version = "0.1.0"
+description = "Django app for multi-worker registration and dynamic logging management"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Vasily", email = "vasily@example.com"}
+]
+keywords = [
+    "django",
+    "logging",
+    "workers",
+    "gunicorn",
+    "uvicorn",
+    "celery",
+    "redis",
+    "multi-worker",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: Django",
+    "Framework :: Django :: 3.2",
+    "Framework :: Django :: 4.0",
+    "Framework :: Django :: 4.1",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.0",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Logging",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "Django>=3.2",
+    "redis>=4.0",
+]
+
+[project.optional-dependencies]
+django-redis = ["django-redis>=5.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-django>=4.5",
+    "pytest-cov>=4.0",
+    "fakeredis>=2.0",
+    "black>=23.0",
+    "isort>=5.0",
+    "flake8>=6.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourname/djquark-workers"
+Documentation = "https://github.com/yourname/djquark-workers#readme"
+Repository = "https://github.com/yourname/djquark-workers"
+Issues = "https://github.com/yourname/djquark-workers/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["djquark_workers*"]
+
+[tool.setuptools.package-data]
+djquark_workers = [
+    "templates/**/*.html",
+    "static/**/*",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311', 'py312']
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | migrations
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip = ["migrations"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+

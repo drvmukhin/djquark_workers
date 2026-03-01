@@ -1,0 +1,8 @@
+include LICENSE
+include README.md
+include CHANGELOG.md
+recursive-include djquark_workers/templates *
+recursive-include djquark_workers/static *
+global-exclude *.pyc
+global-exclude __pycache__
+

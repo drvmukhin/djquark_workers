@@ -61,6 +61,7 @@ class LoggingConfig(models.Model):
     )
 
     class Meta:
+        app_label = 'djquark_workers'
         db_table = 'djquark_logging_config'
         verbose_name = 'Logging Configuration'
         verbose_name_plural = 'Logging Configurations'

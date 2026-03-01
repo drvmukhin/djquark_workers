@@ -159,7 +159,9 @@ class LoggingManager:
             target_logger = logging.getLogger(logger_name)
             target_logger.setLevel(numeric_level)
 
-            logger.info(f"[{worker_id}] Set logger '{logger_name or 'root'}' to level {level_upper}")
+            # Log at DEBUG level to reduce noise during startup
+            # Summary messages are logged at INFO level in apply_saved_config()
+            logger.debug(f"[{worker_id}] Set logger '{logger_name or 'root'}' to level {level_upper}")
 
             # Save to cache and broadcast if requested
             if broadcast:

@@ -14,6 +14,24 @@ A Django app for multi-worker registration and dynamic logging level management 
 
 ## Installation
 
+### From Git Repository (Development)
+
+```bash
+# Install directly from GitHub
+pip install git+https://github.com/drvmukhin/djquark_workers.git
+
+# Or install a specific branch/tag
+pip install git+https://github.com/drvmukhin/djquark_workers.git@main
+pip install git+https://github.com/drvmukhin/djquark_workers.git@v0.1.0
+
+# Or clone and install in editable mode for development
+git clone git@github.com:drvmukhin/djquark_workers.git
+cd djquark_workers
+pip install -e .
+```
+
+### From PyPI (When Published)
+
 ```bash
 pip install djquark-workers
 ```

@@ -9,7 +9,7 @@ description = "Django app for multi-worker registration and dynamic logging mana
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Vasily", email = "vasily@example.com"}
+    {name = "Vasily Mukhin", email = "drvmukhin@gmail.com"}
 ]
 keywords = [
     "django",
@@ -74,6 +74,7 @@ include = ["djquark_workers*"]
 djquark_workers = [
     "templates/**/*.html",
     "static/**/*",
+    "migrations/*.py",
 ]
 
 [tool.black]

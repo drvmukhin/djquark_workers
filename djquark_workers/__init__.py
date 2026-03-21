@@ -5,8 +5,8 @@ A Django app for managing worker registration across distributed processes
 (Gunicorn, Uvicorn, Celery, Celery Beat) and dynamic runtime logging configuration.
 """
 
-__version__ = "0.1.0"
-__author__ = "Vasily"
+__version__ = "0.2.0"
+__author__ = "Vasily Mukhin <vmukhin.dev@gmail.com>"
 
 # Convenience imports
 from djquark_workers.services.worker_registry import WorkerRegistry

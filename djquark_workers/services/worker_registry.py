@@ -138,7 +138,8 @@ class WorkerRegistry:
             return cls._worker_id
 
         try:
-            # Clean up stale workers first
+            # Clean up workers whose heartbeat TTL has expired so their
+            # slots become available for reuse by _assign_worker_id().
             cls._cleanup_stale_workers()
 
             # Assign worker ID
@@ -448,6 +449,10 @@ class WorkerRegistry:
         """
         Remove workers whose heartbeat keys have expired.
 
+        This is the TTL-based cleanup only. For PID-liveness-aware cleanup
+        (e.g. catching OOM-killed workers whose TTL hasn't expired), use
+        the ``cleanup_workers`` management command.
+
         Returns:
             Number of stale workers removed
         """
@@ -479,4 +484,43 @@ class WorkerRegistry:
         except Exception as e:
             logger.warning(f"Error cleaning up stale workers: {e}")
             return 0
+
+    @staticmethod
+    def _get_worker_pid(redis_client, info_key: str) -> Optional[int]:
+        """
+        Get the PID stored for a worker from its Redis info hash.
+
+        Returns:
+            The PID as int, or None if not available.
+        """
+        try:
+            pid_str = redis_client.hget(info_key, 'pid')
+            if pid_str:
+                return int(pid_str.decode() if isinstance(pid_str, bytes) else pid_str)
+        except (ValueError, TypeError):
+            pass
+        return None
+
+    @staticmethod
+    def _is_pid_alive(pid: int) -> bool:
+        """
+        Check if a process with the given PID is still running.
+
+        Uses os.kill(pid, 0) which checks existence without sending a signal.
+
+        Note: This check is only meaningful on the same host. In multi-host
+        deployments the PID may belong to an unrelated process.
+        """
+        try:
+            os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            # errno.ESRCH — No such process
+            return False
+        except PermissionError:
+            # errno.EPERM — Process exists but we can't signal it
+            # (different user). Consider it alive.
+            return True
+        except OSError:
+            return False
 

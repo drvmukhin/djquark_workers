@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "djquark-workers"
-version = "0.1.0"
+version = "0.2.0"
 description = "Django app for multi-worker registration and dynamic logging management"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "Vasily Mukhin", email = "drvmukhin@gmail.com"}
+    {name = "Vasily Mukhin", email = "vmukhin.dev@gmail.com"}
 ]
 keywords = [
     "django",

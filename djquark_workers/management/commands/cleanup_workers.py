@@ -60,6 +60,7 @@ class Command(BaseCommand):
         from djquark_workers.services.worker_registry import (
             _get_redis_client,
             _get_redis_keys,
+            WorkerRegistry,
         )
 
         try:
@@ -94,10 +95,26 @@ class Command(BaseCommand):
             has_heartbeat = redis_client.exists(heartbeat_key)
             heartbeat_ttl = redis_client.ttl(heartbeat_key) if has_heartbeat else -2
 
+            # Determine if worker is truly alive
+            is_alive = has_heartbeat
+            pid_dead = False
+
             if has_heartbeat:
+                # Heartbeat exists, but check if the PID is still running.
+                # This catches OOM-killed workers whose TTL hasn't expired.
+                pid = WorkerRegistry._get_worker_pid(redis_client, info_key)
+                if pid is not None and not WorkerRegistry._is_pid_alive(pid):
+                    is_alive = False
+                    pid_dead = True
+
+            if is_alive:
                 active_workers.append(worker_id)
                 status = self.style.SUCCESS("ACTIVE")
                 ttl_info = f"(TTL: {heartbeat_ttl}s)"
+            elif pid_dead:
+                stale_workers.append(worker_id)
+                status = self.style.ERROR("STALE (dead PID, likely OOM-killed)")
+                ttl_info = f"(heartbeat TTL: {heartbeat_ttl}s remaining)"
             else:
                 stale_workers.append(worker_id)
                 status = self.style.ERROR("STALE")

@@ -15,8 +15,14 @@ python manage.py cleanup_workers --dry-run --verbose
 ### Clean Up Workers
 
 ```bash
-# Remove stale workers (no heartbeat)
+# Remove stale workers (no heartbeat OR dead PID)
 python manage.py cleanup_workers
+
+# Preview what would be removed (dry run)
+python manage.py cleanup_workers --dry-run
+
+# With detailed info — shows PID, hostname, OOM status
+python manage.py cleanup_workers --dry-run --verbose
 
 # Force remove specific workers
 python manage.py cleanup_workers --force wk-05 wk-06
@@ -26,6 +32,19 @@ python manage.py cleanup_workers --force "wk-*"
 
 # Remove ALL workers (before deployment)
 python manage.py cleanup_workers --all
+```
+
+### Recover from OOM-Killed Workers
+
+When a worker is killed by SIGKILL (OOM), its slot stays occupied in Redis
+until the heartbeat TTL expires (default 60s). To reclaim slots immediately:
+
+```bash
+# Detects dead PIDs even if heartbeat TTL hasn't expired yet
+python manage.py cleanup_workers
+
+# Automate via cron (every minute)
+* * * * * cd /path/to/project && python manage.py cleanup_workers --quiet
 ```
 
 ### Debug Redis State

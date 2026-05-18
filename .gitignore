@@ -20,9 +20,19 @@ htmlcov/
 .venv
 env/
 venv/
+# Unit test / coverage reports (extended)
+coverage.xml
+
+# Type / lint caches
+.mypy_cache/
+.ruff_cache/
+
 # IDE
 .idea/
 .vscode/
+*.iml
+*.iws
+*.ipr
 *.swp
 *~
 # OS
@@ -30,6 +40,7 @@ venv/
 Thumbs.db
 # Django
 *.log
+logs/
 db.sqlite3
 # Celery
 celerybeat-schedule

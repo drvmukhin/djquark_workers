@@ -3,7 +3,7 @@ Tests for WorkerRegistry service.
 """
 import os
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 
 
 class TestWorkerRegistry:
@@ -166,6 +166,103 @@ class TestCleanupStaleWorkers:
         removed = WorkerRegistry._cleanup_stale_workers()
         assert removed == 0
         mock_client.srem.assert_not_called()
+
+
+class TestActiveWorkerListing:
+    """Tests for heartbeat-aware active worker listing and counts."""
+
+    @patch('djquark_workers.services.worker_registry._get_redis_client')
+    @patch('djquark_workers.services.worker_registry._get_redis_keys')
+    def test_get_active_workers_prunes_expired_heartbeat_members(self, mock_keys, mock_redis):
+        """Stale set members must not appear in active worker lists or counters."""
+        from djquark_workers.services.worker_registry import WorkerRegistry
+
+        mock_client = MagicMock()
+        mock_redis.return_value = mock_client
+        mock_keys.return_value = {
+            'WORKERS_SET': 'prefix:set',
+            'WORKER_HEARTBEAT': 'prefix:{worker_id}:heartbeat',
+            'WORKER_INFO': 'prefix:{worker_id}:info',
+        }
+
+        mock_client.smembers.return_value = {b'wk-01', b'wk-02', b'cw-01'}
+
+        def exists(key):
+            return key in {
+                'prefix:wk-02:heartbeat',
+                'prefix:cw-01:heartbeat',
+            }
+
+        mock_client.exists.side_effect = exists
+
+        assert WorkerRegistry.get_active_workers() == ['cw-01', 'wk-02']
+        mock_client.srem.assert_called_once_with('prefix:set', 'wk-01')
+        mock_client.delete.assert_called_once_with('prefix:wk-01:info')
+
+    @patch('djquark_workers.services.worker_registry.WorkerRegistry.get_active_workers')
+    def test_get_worker_count_uses_filtered_active_workers(self, mock_get_active_workers):
+        """Worker counts should match heartbeat-filtered active worker lists."""
+        from djquark_workers.services.worker_registry import WorkerRegistry
+
+        mock_get_active_workers.return_value = ['cw-01', 'wk-02']
+
+        assert WorkerRegistry.get_worker_count() == 2
+
+
+class TestCleanupWorkersCommand:
+    """Tests for Docker-safe cleanup_workers PID handling."""
+
+    def _mock_redis_client(self, hostname='old-container'):
+        mock_client = MagicMock()
+        mock_client.smembers.return_value = {b'wk-01'}
+        mock_client.exists.return_value = True
+        mock_client.ttl.return_value = 55
+        mock_client.hgetall.return_value = {
+            b'pid': b'7',
+            b'hostname': hostname.encode(),
+            b'process_type': b'web',
+        }
+        mock_client.hget.return_value = b'7'
+        return mock_client
+
+    @patch('djquark_workers.management.commands.cleanup_workers.socket.gethostname')
+    @patch('djquark_workers.services.worker_registry.WorkerRegistry._is_pid_alive')
+    @patch('djquark_workers.services.worker_registry._get_redis_client')
+    def test_skips_pid_check_for_different_container_hostname(
+        self,
+        mock_redis,
+        mock_is_pid_alive,
+        mock_gethostname,
+    ):
+        """PID liveness must not be trusted across Docker container hostnames."""
+        from djquark_workers.management.commands.cleanup_workers import Command
+
+        mock_gethostname.return_value = 'current-container'
+        mock_redis.return_value = self._mock_redis_client(hostname='old-container')
+
+        Command().handle(dry_run=True, force=None, all=False, verbose=False)
+
+        mock_is_pid_alive.assert_not_called()
+
+    @patch('djquark_workers.management.commands.cleanup_workers.socket.gethostname')
+    @patch('djquark_workers.services.worker_registry.WorkerRegistry._is_pid_alive')
+    @patch('djquark_workers.services.worker_registry._get_redis_client')
+    def test_checks_pid_for_same_container_hostname(
+        self,
+        mock_redis,
+        mock_is_pid_alive,
+        mock_gethostname,
+    ):
+        """PID liveness remains useful for workers from the same container hostname."""
+        from djquark_workers.management.commands.cleanup_workers import Command
+
+        mock_gethostname.return_value = 'current-container'
+        mock_redis.return_value = self._mock_redis_client(hostname='current-container')
+        mock_is_pid_alive.return_value = False
+
+        Command().handle(dry_run=True, force=None, all=False, verbose=False)
+
+        mock_is_pid_alive.assert_called_once_with(7)
 
 
 class TestWorkerRegistryIntegration:

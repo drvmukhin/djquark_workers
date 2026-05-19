@@ -130,6 +130,7 @@ class DjquarkWorkersConfig(AppConfig):
             'collectstatic', 'createsuperuser', 'check', 'test',
             'showmigrations', 'sqlmigrate', 'inspectdb', 'diffsettings',
             'dumpdata', 'loaddata', 'flush', 'startapp', 'startproject',
+            'deploy_version',  # One-shot release command; not a long-running worker
             'cleanup_workers',  # Don't register worker when cleaning up workers
         ]
         return len(sys.argv) > 1 and sys.argv[1] in skip_commands

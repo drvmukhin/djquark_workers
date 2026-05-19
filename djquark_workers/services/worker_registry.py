@@ -230,11 +230,31 @@ class WorkerRegistry:
             keys = _get_redis_keys()
 
             workers = redis_client.smembers(keys['WORKERS_SET'])
-            worker_list = [
-                w.decode() if isinstance(w, bytes) else w
-                for w in workers
-            ]
-            return sorted(worker_list)
+            active_workers = []
+            stale_workers = []
+
+            for worker in workers:
+                worker_id = worker.decode() if isinstance(worker, bytes) else worker
+                heartbeat_key = keys['WORKER_HEARTBEAT'].format(worker_id=worker_id)
+
+                if redis_client.exists(heartbeat_key):
+                    active_workers.append(worker_id)
+                else:
+                    stale_workers.append(worker_id)
+
+            for worker_id in stale_workers:
+                redis_client.srem(keys['WORKERS_SET'], worker_id)
+                info_key = keys['WORKER_INFO'].format(worker_id=worker_id)
+                redis_client.delete(info_key)
+
+            if stale_workers:
+                logger.info(
+                    "Pruned %s stale worker(s) while reading active workers: %s",
+                    len(stale_workers),
+                    ", ".join(sorted(stale_workers)),
+                )
+
+            return sorted(active_workers)
 
         except Exception as e:
             logger.warning(f"Error getting active workers: {e}")
@@ -277,12 +297,7 @@ class WorkerRegistry:
     @classmethod
     def get_worker_count(cls) -> int:
         """Get count of active workers."""
-        try:
-            redis_client = _get_redis_client()
-            keys = _get_redis_keys()
-            return redis_client.scard(keys['WORKERS_SET']) or 0
-        except Exception:
-            return 1
+        return len(cls.get_active_workers())
 
     @classmethod
     def get_process_type(cls) -> str:

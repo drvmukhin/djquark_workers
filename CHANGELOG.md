@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-05-19
+
+### Fixed
+- Worker status counters now use heartbeat-filtered active workers instead of
+  raw Redis set cardinality, so stale set members no longer inflate total/web
+  counts after rolling Docker deployments.
+- `get_active_workers()` prunes expired-heartbeat Redis set members while
+  reading status, keeping the registry self-healing during normal UI/API access.
+- `cleanup_workers` only trusts PID liveness when the stored worker hostname
+  matches the cleanup process hostname, avoiding false positives caused by PID
+  reuse across Docker container namespaces.
+- `deploy_version` is skipped by app startup registration so one-shot release
+  containers do not briefly register as web workers.
+
 ## [0.2.0] - 2026-03-21
 
 ### Added

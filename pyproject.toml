@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "djquark-workers"
-version = "0.2.0"
+version = "0.2.1"
 description = "Django app for multi-worker registration and dynamic logging management"
 readme = "README.md"
 license = {text = "MIT"}

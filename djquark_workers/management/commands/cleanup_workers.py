@@ -20,6 +20,7 @@ Usage:
     python manage.py cleanup_workers --all
 """
 import fnmatch
+import socket
 from django.core.management.base import BaseCommand, CommandError
 
 
@@ -56,7 +57,6 @@ class Command(BaseCommand):
         verbose = options['verbose']
 
         # Import here to ensure Django is fully loaded
-        from djquark_workers.conf import settings as quark_settings
         from djquark_workers.services.worker_registry import (
             _get_redis_client,
             _get_redis_keys,
@@ -87,6 +87,7 @@ class Command(BaseCommand):
         # Analyze each worker
         active_workers = []
         stale_workers = []
+        current_hostname = socket.gethostname()
 
         for worker_id in worker_list:
             heartbeat_key = keys['WORKER_HEARTBEAT'].format(worker_id=worker_id)
@@ -102,10 +103,22 @@ class Command(BaseCommand):
             if has_heartbeat:
                 # Heartbeat exists, but check if the PID is still running.
                 # This catches OOM-killed workers whose TTL hasn't expired.
-                pid = WorkerRegistry._get_worker_pid(redis_client, info_key)
-                if pid is not None and not WorkerRegistry._is_pid_alive(pid):
-                    is_alive = False
-                    pid_dead = True
+                # In Docker, PIDs are only meaningful inside the same container
+                # namespace. A stale worker from another container may have PID 7,
+                # while PID 7 is also alive in the cleanup command's container.
+                info = redis_client.hgetall(info_key)
+                info_decoded = {
+                    k.decode() if isinstance(k, bytes) else k:
+                    v.decode() if isinstance(v, bytes) else v
+                    for k, v in info.items()
+                }
+                worker_hostname = info_decoded.get('hostname')
+
+                if worker_hostname == current_hostname:
+                    pid = WorkerRegistry._get_worker_pid(redis_client, info_key)
+                    if pid is not None and not WorkerRegistry._is_pid_alive(pid):
+                        is_alive = False
+                        pid_dead = True
 
             if is_alive:
                 active_workers.append(worker_id)
